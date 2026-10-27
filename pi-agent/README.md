@@ -1,5 +1,7 @@
 # Pi-Agent 双轨教程
 
+> **本 Fork 分批更新中**：TypeScript 源码精读第 1–3 章已核对到 Pi v1.4.0；第 4–10 章、Python 版、实战代码和 Skill 尚待升级。[阅读入口与版本状态](./pi_source_dive/typescript/README.md) · [审计和更新记录](./pi_source_dive/typescript/版本审计与更新方案.md)。原作者在线站点与 PDF 尚未更新为本 Fork 的版本。
+
 > 两条互补的路线教你 [pi-agent](https://github.com/earendil-works/pi) SDK：**实战上手**（搭一个能上线的 Agent）+ **源码精读**（看懂 SDK 怎么造）。
 
 ## 🚀 实战上手篇 · 7 章

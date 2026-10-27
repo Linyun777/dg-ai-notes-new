@@ -1,0 +1,126 @@
+# Pi 中文源码教程：版本审计与更新方案
+
+审计日期：2026-10-27（北京时间）。先完成本方案，再按原教程顺序更新第 1–3 章；第 4–10 章本轮只记录差异，不标作已升级。
+
+## 1. 仓库与版本
+
+| 对象 | 来源与准确基线 |
+|---|---|
+| 原教程 | 冬瓜 / [buchidonggua/dg-ai-notes](https://github.com/buchidonggua/dg-ai-notes) |
+| 本次修改的 Fork | [Linyun777/dg-ai-notes-new](https://github.com/Linyun777/dg-ai-notes-new)，GitHub 返回 `permissions.push: true` |
+| 教程起点 | `5f4abd34d3d4d756e016b78bfbfe90d97cd9c7cf`；获取时已 fetch，工作区与 `origin/main` 一致 |
+| 源码篇旧基线 | Pi v0.80.2：`0201806adfa825ab3d7957a4267d46e5030fd357` |
+| 配套代码 / Skill 旧基线 | Pi v0.83.0：`845d6ff1f6643aba440341cce877ce1c43ebbc39` |
+| 本轮官方稳定版 | [Pi v1.4.0](https://github.com/earendil-works/pi/releases/tag/v1.4.0)，`4a080252f06caf63a525d7873c5d94d3c23887e0` |
+| 稳定版判定 | GitHub `releases/latest` 返回 v1.4.0，`draft: false`、`prerelease: false`；发布时间 2026-10-22 06:49:48 北京时间 |
+| 本地官方源码 | `../pi`（相对于教程仓库），检出稳定版标签；同时获取 v0.80.2、v0.83.0 用于比较 |
+| 开发位置 | 独立 worktree `dg-ai-notes-v1.4`，分支 `codex/pi-v1.4-ch01-03`；主工作区使用 `main` |
+
+所有新增官方源码链接固定到完整 SHA。`main` 的未发布内容不混入稳定版教程。原作者署名、MIT LICENSE 与文档 CC-BY-SA-4.0 声明保留；修订继续沿用原许可证。未经用户要求，不提交、合并或推送。
+
+## 2. 审计方法与主要发现
+
+对十章的源码引用、关键代码块、调用链与架构结论，结合两个旧标签与 v1.4.0 的实际文件进行差异审查。路径存在不等于内容正确：例如 `model-registry.ts` 仍存在，但已是兼容包装；旧文中 `ModelRegistry.create()` 的启动叙述要改为 `ModelRuntime.create()`。
+
+需要优先处理的变化：
+
+- **架构**：`packages/orchestrator` 与 agent-core 的 `harness/` 已移除。仓库现有 11 个 `packages/*` workspace；本文仍沿 ai → agent → coding-agent 主线讲解。`durable` 是另一套可组合的持久运行时，不能把它画成 coding-agent 的必经层。
+- **消息协议**：标准 `Message` 增加 `SystemMessage`，共四种。系统提示词分节与工具增删进入 transcript。`AgentContext` 保留 `messages` 和可执行 `tools`，不再有独立 `systemPrompt` 字段。
+- **Loop 生命周期**：`finishTurn` 在 `turn_end` 前返回结束 / 继续决策；`prepareNextTurn` 只在确定继续时运行；`prepareRequest` 覆盖首轮在内的每次请求。
+- **截断保护**：`length` 响应里的工具调用全部返回错误结果，不执行可能不完整的参数；给模型重新发出调用的机会。
+- **工具终止**：一批非空结果必须全部 `terminate: true`，才停止工具驱动的续轮；steering / follow-up / 显式 continue 仍可安排下一轮。
+- **产品能力**：已支持 MCP、codemode、工具延迟发现与多种工具暴露方式；“Pi 没有 MCP”已失效。扩展修改后通过 `/reload` 重载，不能承诺保存即生效。
+
+## 3. 逐章审计与更新顺序
+
+以下是差异审计，不表示第 4–10 章已完成逐段改写或示例验证。
+
+| 章 | 审计发现 / 保留的主线 | 修改方案与官方依据 |
+|---|---|---|
+| 1 开篇 | 四包适合作为学习主线，但不再代表全仓库；MCP、固定 prompt 字数、供应商数量、即时热重载等说法过时。用户消息漏 `timestamp`，`createAgentSession()` 返回值也写错 | 保留三个视角与积木比喻，替换能力表和三个 SDK 示例；依据 [README](https://github.com/earendil-works/pi/blob/4a080252f06caf63a525d7873c5d94d3c23887e0/README.md)、[sdk.ts](https://github.com/earendil-works/pi/blob/4a080252f06caf63a525d7873c5d94d3c23887e0/packages/coding-agent/src/core/sdk.ts)、[system-prompt.ts](https://github.com/earendil-works/pi/blob/4a080252f06caf63a525d7873c5d94d3c23887e0/packages/coding-agent/src/core/system-prompt.ts) |
+| 2 架构 | 五包 / orchestrator 与 agent-core 导出 harness 的描述失效；pi-ai 现在依赖 telemetry，TUI 新增 `marked-cjk-friendly`。工具类型与入口导入也需核实 | 更新目录树、依赖图、CLI 启动链与类型节选；保留“原子→分子→材料”的讲法。依据 [agent/index.ts](https://github.com/earendil-works/pi/blob/4a080252f06caf63a525d7873c5d94d3c23887e0/packages/agent/src/index.ts)、各包 package.json、[extensions/types.ts](https://github.com/earendil-works/pi/blob/4a080252f06caf63a525d7873c5d94d3c23887e0/packages/coding-agent/src/core/extensions/types.ts) |
+| 3 Loop | 旧钩子、`firstTurn`、三种标准消息和 Context 组装示例已不符源码；“length 时仍执行工具”“一个工具 terminate 就停”均错误 | 重写对应局部代码块与时序，保留双层循环和一条消息的旅程；依据 [agent-loop.ts](https://github.com/earendil-works/pi/blob/4a080252f06caf63a525d7873c5d94d3c23887e0/packages/agent/src/agent-loop.ts)、[agent.ts](https://github.com/earendil-works/pi/blob/4a080252f06caf63a525d7873c5d94d3c23887e0/packages/agent/src/agent.ts)、[agent/types.ts](https://github.com/earendil-works/pi/blob/4a080252f06caf63a525d7873c5d94d3c23887e0/packages/agent/src/types.ts) |
+| 4 模型调用 | 统一适配与事件流主线仍成立；全局 compat 路由不是新代码首选，`StreamFunction` 输入为 TranscriptContext；不能笼统承诺所有公开入口从不抛错；思考档位不止五级 | 后续以 `createModels()` / Provider 集合解释新入口，兼容 API 单独标明；补 `normalizeContext`、认证失败边界与 `max`。依据 [models.ts](https://github.com/earendil-works/pi/blob/4a080252f06caf63a525d7873c5d94d3c23887e0/packages/ai/src/models.ts)、[compat.ts](https://github.com/earendil-works/pi/blob/4a080252f06caf63a525d7873c5d94d3c23887e0/packages/ai/src/compat.ts)、[ai/types.ts](https://github.com/earendil-works/pi/blob/4a080252f06caf63a525d7873c5d94d3c23887e0/packages/ai/src/types.ts) |
+| 5 工具 | 五步管道、串并行调度和同文件变更队列仍在。新增 `runToolCall`、`outputSchema` / `structuredContent`、显式 `isError` 与 exposure 等契约 | 后续保留五步主线，核对错误回传、嵌套调用和 ExtensionToolContext；工具暴露 / codemode 放补充。依据 [agent-loop.ts](https://github.com/earendil-works/pi/blob/4a080252f06caf63a525d7873c5d94d3c23887e0/packages/agent/src/agent-loop.ts)、[extensions/types.ts](https://github.com/earendil-works/pi/blob/4a080252f06caf63a525d7873c5d94d3c23887e0/packages/coding-agent/src/core/extensions/types.ts) |
+| 6 消息 | 两层消息与四种 coding-agent 自定义消息仍成立；“三种标准 / 共七种消息”已过时。默认过滤器必须保留 system，产品转换器会把摘要翻成 user | 后续更新为四种标准 / 八种已知角色（自定义还可扩展），区分默认过滤和产品转换，解释 system sections 与工具声明。依据 [messages.ts](https://github.com/earendil-works/pi/blob/4a080252f06caf63a525d7873c5d94d3c23887e0/packages/coding-agent/src/core/messages.ts)、[transcript.ts](https://github.com/earendil-works/pi/blob/4a080252f06caf63a525d7873c5d94d3c23887e0/packages/ai/src/utils/transcript.ts) |
+| 7 事件 | 内核十类 AgentEvent 仍在；`Agent.subscribe()` 等待监听器，`session.subscribe()` 仍是同步通知，两者不能混淆。`agent_end` 也不是产品彻底空闲 | 后续补 `agent_settled`、`willRetry` 和新的边界扩展事件，重新核对两条通知管道与收尾时机。依据 [agent.ts](https://github.com/earendil-works/pi/blob/4a080252f06caf63a525d7873c5d94d3c23887e0/packages/agent/src/agent.ts)、[agent-session.ts](https://github.com/earendil-works/pi/blob/4a080252f06caf63a525d7873c5d94d3c23887e0/packages/coding-agent/src/core/agent-session.ts)、[extensions/runner.ts](https://github.com/earendil-works/pi/blob/4a080252f06caf63a525d7873c5d94d3c23887e0/packages/coding-agent/src/core/extensions/runner.ts) |
+| 8 上下文工程 | 2000 行 / 50 KiB 的截断常量和 Skills 按需加载仍在；引用 agent-core harness 的两条压缩路径已不存在；固定 prompt 骨架与压缩触发叙述需更新 | 后续指向 coding-agent 的 compaction，实现项目规则加载、提示词分节和请求前投影；依据 [resource-loader.ts](https://github.com/earendil-works/pi/blob/4a080252f06caf63a525d7873c5d94d3c23887e0/packages/coding-agent/src/core/resource-loader.ts)、[system-prompt.ts](https://github.com/earendil-works/pi/blob/4a080252f06caf63a525d7873c5d94d3c23887e0/packages/coding-agent/src/core/system-prompt.ts)、[truncate.ts](https://github.com/earendil-works/pi/blob/4a080252f06caf63a525d7873c5d94d3c23887e0/packages/coding-agent/src/core/tools/truncate.ts) |
+| 9 压缩 | 找切点、保留近期消息与增量摘要仍在；只讲 agent_end 后压缩不完整。v1.4.0 摘要输出使用模型输出上限，`reserveTokens` 仅参与触发阈值 | 后续核对请求前 / turn 间压缩、投影与恢复链路，替换旧签名和行号；依据 [compaction.ts](https://github.com/earendil-works/pi/blob/4a080252f06caf63a525d7873c5d94d3c23887e0/packages/coding-agent/src/core/compaction/compaction.ts)、[agent-session.ts](https://github.com/earendil-works/pi/blob/4a080252f06caf63a525d7873c5d94d3c23887e0/packages/coding-agent/src/core/agent-session.ts) |
+| 10 会话 | JSONL、parentId 树和 version 3 仍在；默认位置不是项目 `.pi/sessions/`，而是用户目录 `~/.pi/agent/sessions/<编码 cwd>/`。agent-core 的三个 SessionStorage 引用已消失 | 后续更新存储边界、投影 / context_edit / system_message 及模型恢复解释；不能宣称 assistant 不带 model 字段。依据 [session-manager.ts](https://github.com/earendil-works/pi/blob/4a080252f06caf63a525d7873c5d94d3c23887e0/packages/coding-agent/src/core/session-manager.ts)、[sdk.ts](https://github.com/earendil-works/pi/blob/4a080252f06caf63a525d7873c5d94d3c23887e0/packages/coding-agent/src/core/sdk.ts) |
+
+## 4. 本轮实施方案
+
+1. 第 1 章：更正版本与能力边界，换成可类型检查的 SDK 示例；去掉无来源的实时排名、Stars 和 token 对比，不新增营销材料。
+2. 第 2 章：更新包结构与依赖，修正 Agent 初始化、消息类型、工具签名，保留原有讲解顺序。
+3. 第 3 章：更新循环骨架、截断处理、三个生命周期钩子、steering 时机和源码索引；区别“真实源码节选”与“教学伪代码”。
+4. 同步三个 TS MDX 页面。旧配图由 Python 页面共享，失效的配图另存 v1.4 版本，只让修订后的 TS 页面引用。审查电子书配对检查后发现它要求两种语言的配图元数据完全一致；为支持分批升级，给新版 TS 页面声明 `sourceVersion`，仅在显式版本不同的配对中允许配图不同，其余公共元数据继续严格比较。Python 正文、元数据与旧图不改。
+5. 新机制汇总到[补充文档](pi-v1.4-mechanisms.md)。在阅读入口明确本次只有前三章完成更新，避免混用版本。
+6. 校验固定 SHA 下的路径、行号与相邻源码；对必要可运行示例做类型检查和无联网模型的行为验证；运行原有 md/mdx 同步检查与电子书构建。
+
+本轮不改仓库依赖清单、锁文件、数据库、全局配置或既有配套应用代码。验证所需新版包单独放临时目录，使用准确版本；模型行为验证使用假响应，不读取个人密钥或调用付费 API。
+
+## 5. 配套内容影响清单（先审查，暂不修改）
+
+| 内容 | 影响与下次审查点 | 本轮处理 |
+|---|---|---|
+| `pi-agent/pi_sdk_learn/code/package.json` | 三个 Pi 包仍为 `^0.83.0`，不会自动跨到 1.4.0；必须先检查 L01–L07，再统一升级版本 | 保留 |
+| `L01-env` / `L02-arch` | 已正确使用 `ModelRuntime` 与解构返回，不能机械替换；核对认证、初始化与资源释放 | 列入清单 |
+| `L03-model` / `L04-prompt` | 模型元数据、思考档位、prompt sections 与完整替换语义需要对照新版 | 列入清单 |
+| `L05-tools`、`shared/lib/tools` | `defineTool`、execute 上下文、显式错误结果、结构化输出和工具启用规则 | 列入清单 |
+| `L06-extensions` / `L07-streaming` | 新边界事件、`agent_settled` / 重试 / 压缩后的流关闭时机、扩展重载 | 列入清单 |
+| `pi-agent/pi_sdk_learn/docs` | 实战七章必须与配套代码同批审查，不能只替换安装版本号 | 保留 |
+| `skills/dg-piagent/` | 基线 0.83.0；逐项核对 sdk_doc、scenarios、模型协议、工具暴露、边界事件及配套安装指令，再升级版本声明 | 保留；本次将其当待审查内容，不套用其旧 API 结论 |
+| `pi-agent/pi_source_dive/python/` | 是 TS 的教学等价改写，不是官方 Python SDK；需要四种标准消息、新钩子、截断与新架构的语义同步 | 保留全部正文及旧图 |
+| `pi-agent/notebooks/agent-loop.ipynb` | Python 实验场模拟旧循环；下次审查 length 保护、显式续轮与消息协议，再决定是否调整 | 保留 |
+| `pi-agent/web/src/content/modules/*.python.mdx` | Python 的网页快照和 frontmatter 与 TS 共享配对检查，不能未经审查改变其基线 | 保留 |
+| 旧 HTML 图源 / PDF / 原作者在线站 | 不自动再发布旧版本图或 PDF，不对原作者站点发布 | 保留；本轮仅构建本地 TS 页面及检查所需产物 |
+
+## 6. 结果与逐章更新记录
+
+本轮第 1–3 章已修改并完成开发者自检；用户于 2026-10-27 确认提交、合并并推送到自己的 Fork 的 `main`。开发在上述独立 worktree 中完成，第 4–10 章继续按上表顺序实施。
+
+### 逐章更新记录
+
+| 章 | 已交付的修订与原因 | 对应官方源码 |
+|---|---|---|
+| 1 | 保留三个视角与积木比喻，更新能力和版本边界；将模型调用改成 `createModels()` + `setProvider()`，Agent 改用 `initialState` / `streamFn`，会话工厂正确解构并释放。去掉不可复现的排名、固定 token 数与外部模型参数示例；自定义网关改为明确的占位配置，Key 使用环境变量名。避免读者照抄过时或误写的 API | [Models / CreateModelsOptions](https://github.com/earendil-works/pi/blob/4a080252f06caf63a525d7873c5d94d3c23887e0/packages/ai/src/models.ts)、[AgentOptions](https://github.com/earendil-works/pi/blob/4a080252f06caf63a525d7873c5d94d3c23887e0/packages/agent/src/agent.ts)、[CreateAgentSessionResult](https://github.com/earendil-works/pi/blob/4a080252f06caf63a525d7873c5d94d3c23887e0/packages/coding-agent/src/core/sdk.ts) |
+| 2 | 保留“原子→分子→材料”和三层复用场景；重画包目录与依赖方向，移除旧 orchestrator / agent-core harness 描述，区分 coding-agent 与 durable；修正四种标准消息、ToolDefinition 的包装适配和额外工具上下文，换成真实入口导入。防止把教学分层当作完整仓库拓扑 | [根 workspace](https://github.com/earendil-works/pi/blob/4a080252f06caf63a525d7873c5d94d3c23887e0/package.json)、[agent 导出](https://github.com/earendil-works/pi/blob/4a080252f06caf63a525d7873c5d94d3c23887e0/packages/agent/src/index.ts)、[工具 wrapper](https://github.com/earendil-works/pi/blob/4a080252f06caf63a525d7873c5d94d3c23887e0/packages/coding-agent/src/core/extensions/wrapper.ts) |
+| 3 | 保留 Trace / Turn、双层循环和逐步追踪；更新 runAgentLoop 签名、system transcript、浅快照与事件写回、三个钩子的真实顺序、steering 取队列时机。纠正 length 仍执行工具、单个 terminate 就停、被拦一个就全停等误解；取消全部 terminate 也不等于禁止排队消息续轮 | [runLoop / failToolCallsFromTruncatedMessage / shouldTerminateToolBatch](https://github.com/earendil-works/pi/blob/4a080252f06caf63a525d7873c5d94d3c23887e0/packages/agent/src/agent-loop.ts)、[钩子契约](https://github.com/earendil-works/pi/blob/4a080252f06caf63a525d7873c5d94d3c23887e0/packages/agent/src/types.ts)、[状态与生命周期](https://github.com/earendil-works/pi/blob/4a080252f06caf63a525d7873c5d94d3c23887e0/packages/agent/src/agent.ts) |
+
+三个 TS MDX 页面同步更新；5 张失效配图另存 `261027-*` 的 SVG，并保留原图给 Python 页面使用。审查网页后也修正了旧类型图上误标的 `extends` 箭头与文字重叠。补充文档介绍 transcript、轮次边界、MCP / codemode、durable 和非聊天模型。
+
+### 实际验证
+
+| 检查 | 结果 |
+|---|---|
+| 官方版本、引用路径与关键契约 | `verify-source.mjs` 校验官方 checkout 的完整 SHA、源码无改动、三包版本、固定源码链接、行号范围、相对链接、前三章显式源码路径与关键符号，全部通过 |
+| 必要示例 | 直接从章节抽取 5 个可运行 TypeScript 代码块：第 1 章三个 SDK 层次、第 2 章两个复用场景；用准确的 Pi 1.4.0 包和 TypeScript 7.0.2 做严格类型检查，通过。结构节选 / 伪代码不冒充可执行示例 |
+| Loop 行为 | `agent-loop.test.mjs` 调用真实发布包，16/16 通过；覆盖真实 Models 集合中绑定 streamSimple 的调用、正常轮次、工具回传、截断后零执行与重发、end 优先级、continue 不重复续轮、error / aborted 硬停、混合 / 全部 terminate、followUp、钩子顺序、工具声明及等待 agent_end 监听器 |
+| Markdown / MDX | 原有 `npm run check:sync`：27 对同步，漂移 0，缺失 0 |
+| TS / Python 配对 | 构建前检查扫描 27 个 MDX，通过；3 对显式版本不同的页面各自保留配图，其余公共元数据仍严格比较。临时反例验证 3/3：显式分批升级通过，错误标题与未声明版本的配图差异均被拒绝 |
+| 电子书构建 | `npm run build` 成功，生成 30 个静态页面 |
+| 页面与配图 | 3 个 TS 页面正常渲染、版本可见，本地链接 / 资源返回成功，无页面脚本错误和主栏溢出；5 张新版图已逐张查看 |
+| 修改边界 | 许可证、版权主体、原 Python 目录和页面、原配图、实战代码、Skill、notebook、依赖清单与锁文件没有改动；`git diff --check` 通过 |
+
+验证环境为 Node.js 24.22.1；新版 Pi 包安装在独立临时目录。只使用假模型响应与假工具，没有读取个人模型认证、调用付费模型或接入真实 MCP 服务。
+
+未测项：真实供应商联网调用、个人账号认证、真实 MCP / codemode 服务、durable 恢复行为、第 4–10 章和配套应用运行。这些内容已在审计和影响清单中列出，不计入本轮“验证通过”。原作者在线站点与 PDF 未发布更新。
+
+### 继续维护时如何复验
+
+从教程仓库根目录执行；`../pi` 应保持在上面的准确官方提交：
+
+```bash
+checks_dir="$(mktemp -d)"
+npm install --prefix "$checks_dir" --no-save --no-package-lock --ignore-scripts --no-audit --no-fund \
+  @earendil-works/pi-ai@1.4.0 @earendil-works/pi-agent-core@1.4.0 \
+  @earendil-works/pi-coding-agent@1.4.0 typebox@1.3.27 typescript@7.0.2 @types/node@22.19.19
+node pi-agent/pi_source_dive/typescript/_checks/verify-source.mjs ../pi "$checks_dir"
+PI_STUDY_PACKAGES="$checks_dir" node --test pi-agent/pi_source_dive/typescript/_checks/agent-loop.test.mjs
+cd pi-agent/web
+npm ci --ignore-scripts --no-audit --no-fund
+npm run check:sync
+npm run build
+```
+
+这套验证不要求模型 Key。下一批更新先从第 4 章开始，并据其变更再决定是否审查配套代码和 Skill 的对应部分。

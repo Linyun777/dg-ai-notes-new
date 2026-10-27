@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 700" role="img" aria-labelledby="title desc">
+  <title id="title">Pi v1.4.0：响应与续轮决策</title>
+  <desc id="desc">错误硬退出；其他响应按工具调用与截断状态处理，之后由 finishTurn、工具批次、steering、followUp 和显式 continue 决定续轮。</desc>
+  <defs><marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><path d="M0 0L8 3L0 6" fill="#57534e"/></marker></defs>
+  <rect width="960" height="700" fill="#faf7f2"/>
+  <g font-family="system-ui, sans-serif" text-anchor="middle" fill="#1c1917" font-size="14">
+    <rect x="330" y="24" width="300" height="56" rx="6" fill="white" stroke="#1c1917"/>
+    <text x="480" y="48" font-weight="600">模型返回 AssistantMessage</text><text x="480" y="67" font-size="12" fill="#57534e">先看 stopReason，再看 content</text>
+    <path d="M480 80V110M630 52H790V110" fill="none" stroke="#57534e" marker-end="url(#arrow)"/>
+    <text x="698" y="42" font-size="12">error / aborted</text>
+    <rect x="660" y="112" width="260" height="76" rx="6" fill="#f6e8e2" stroke="#b5523a"/>
+    <text x="790" y="137" font-weight="600">硬停止</text><text x="790" y="158" font-size="12">finishTurn 收尾，忽略继续决策</text><text x="790" y="176" font-size="12">turn_end → agent_end，不取队列</text>
+    <rect x="330" y="112" width="300" height="56" rx="6" fill="white" stroke="#1c1917"/>
+    <text x="480" y="137" font-weight="600">其他响应：有没有 toolCall？</text><text x="480" y="156" font-size="12">stop / toolUse / length</text>
+    <path d="M330 140H160V236M480 168V236M600 168V210H800V236" fill="none" stroke="#57534e" marker-end="url(#arrow)"/>
+    <rect x="420" y="187" width="120" height="25" fill="#faf7f2"/>
+    <text x="215" y="130" font-size="12">没有</text><text x="480" y="205" font-size="12">有，未截断</text><text x="760" y="202" font-size="12">有，length 截断</text>
+    <rect x="40" y="238" width="240" height="104" rx="6" fill="white" stroke="#1c1917"/>
+    <text x="160" y="268" font-weight="600">不执行工具</text><text x="160" y="295" font-size="12">hasMoreToolCalls = false</text><text x="160" y="320" font-size="12">仍要检查收尾决策</text>
+    <rect x="360" y="238" width="240" height="104" rx="6" fill="white" stroke="#1c1917"/>
+    <text x="480" y="268" font-weight="600">执行工具批次</text><text x="480" y="295" font-size="12">全部 terminate 才取消工具续轮</text><text x="480" y="320" font-size="12">结果按调用顺序进入消息</text>
+    <rect x="680" y="238" width="240" height="104" rx="6" fill="#f6e8e2" stroke="#b5523a"/>
+    <text x="800" y="268" font-weight="600">工具执行次数为零</text><text x="800" y="295" font-size="12">每个调用都返回错误结果</text><text x="800" y="320" font-size="12">让模型下轮重发完整参数</text>
+    <path d="M160 342V386H480M800 342V386H480M480 342V414" fill="none" stroke="#57534e" marker-end="url(#arrow)"/>
+    <rect x="230" y="416" width="500" height="64" rx="6" fill="white" stroke="#b5523a"/>
+    <text x="480" y="442" font-weight="600">finishTurn → turn_end</text><text x="480" y="463" font-size="12">决策先发生，再发轮次结束事件</text>
+    <path d="M230 448H160V530M730 448H800V530" fill="none" stroke="#57534e" marker-end="url(#arrow)"/>
+    <text x="160" y="512" font-size="12">action: end</text><text x="800" y="512" font-size="12">其他决策</text>
+    <rect x="40" y="532" width="240" height="64" rx="6" fill="#f6e8e2" stroke="#b5523a"/>
+    <text x="160" y="558" font-weight="600">立即 agent_end</text><text x="160" y="580" font-size="12">不取 steering / followUp</text>
+    <rect x="570" y="532" width="350" height="98" rx="6" fill="white" stroke="#1c1917"/>
+    <text x="745" y="556" font-weight="600">选择下一次请求</text><text x="745" y="579" font-size="12">工具续轮 / steering → followUp → 显式 continue</text><text x="745" y="601" font-size="12">任一来源满足 continue，不多跑一轮</text><text x="745" y="620" font-size="12">都没有 → agent_end；否则 → 下一 Turn</text>
+    <text x="480" y="675" font-size="12" fill="#57534e">源码：packages/agent/src/agent-loop.ts · v1.4.0 / 4a080252</text>
+  </g>
+</svg>

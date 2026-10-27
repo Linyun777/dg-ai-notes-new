@@ -18,6 +18,7 @@ function parseFrontmatter(content) {
 
 const files = readdirSync(MODULES_DIR).filter(f => f.endsWith('.mdx'));
 const errors = [];
+const versionDifferences = new Set();
 let pythonMissingCount = 0;
 const fieldKeysToCompare = [
   'title', 'module', 'displayOrder', 'status', 'summary',
@@ -74,6 +75,13 @@ for (const file of files) {
 
   // 字段深比较（序列化后比对）
   for (const key of fieldKeysToCompare) {
+    // A staged source upgrade can change diagrams before its translated counterpart.
+    // All other shared metadata is still checked, including bidirectional pairing.
+    if (key === 'diagrams' && fm.sourceVersion !== counterpartFm.sourceVersion &&
+        (fm.sourceVersion || counterpartFm.sourceVersion)) {
+      versionDifferences.add([file, counterpartFile].sort().join(' ↔ '));
+      continue;
+    }
     const a = JSON.stringify(fm[key] ?? null);
     const b = JSON.stringify(counterpartFm[key] ?? null);
     if (a !== b) {
@@ -89,4 +97,7 @@ if (errors.length > 0) {
 }
 
 const pythonCount = files.filter(f => f.endsWith('.python.mdx')).length;
+for (const pair of versionDifferences) {
+  console.log(`版本分批更新，分别保留配图：${pair}`);
+}
 console.log(`✓ counterpart 校验通过（扫描 ${files.length} 个 mdx 文件，${pythonCount} 个 Python 版，${pythonMissingCount} 个 TS 版暂无 Python counterpart）`);

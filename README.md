@@ -2,6 +2,8 @@
 
 > Pi源码解读和二次开发实战
 
+> **本 Fork 的维护入口**：正在将原教程分批核对到 Pi v1.4.0，当前先更新 TypeScript 源码篇第 1–3 章。请从[新版阅读目录](./pi-agent/pi_source_dive/typescript/README.md)开始；[版本审计与逐章记录](./pi-agent/pi_source_dive/typescript/版本审计与更新方案.md)说明其余章节及配套内容的状态。下面的在线站点仍是原作者发布版。
+
 > 🌐 **在线阅读**：[dg-ai-notes.pages.dev](https://dg-ai-notes.pages.dev) —— 双轨教程 · 沉浸式阅读 · 深浅色主题
 >
 > [![在线电子书首页](./assets/web-home.png)](https://dg-ai-notes.pages.dev)
